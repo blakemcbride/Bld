@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <path-to-place-you-want-to-install-bld-to>"
+    exit 1
+fi
+
+mkdir -p $1/builder
+cp builder/* $1/builder
+cp bld bld.cmd $1
+
+

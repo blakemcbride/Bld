@@ -74,3 +74,8 @@ way it comes out of the box is as follows:
 
 You do not need to build the system.  The system builds itself anytime something changes.
 
+## Installation
+
+There is an installation script (install or install.cmd) that can be used to install _bld_ into your application.
+
+
