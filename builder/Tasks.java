@@ -75,6 +75,7 @@ public class Tasks {
         println("Build the entire system and run it:");
         println("  run <full-path-of-class-to-run>  [argument]...                     ");
         println("Example:  bld run org.example.Main  the-first-argument  the-second-argument");
+	println("full-path-of-class-to-run is mandidory unless your task is defined in Tasks.java");
 
         println("");
         println("clean                    remove all compiled files");
@@ -104,7 +105,7 @@ public class Tasks {
      */
     public static void run() {
         build();
-        runJava();
+        runJava(localLibs, foreignLibs);
     }
 
     /**

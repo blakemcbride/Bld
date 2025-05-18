@@ -688,13 +688,15 @@ public class BuildUtils {
         return f.getAbsolutePath();
     }
 
-    private static String writeDependencyArgsToFile(LocalDependencies ldep, ForeignDependencies fdep, String additionalSourceRoot) {
+    private static String writeDependencyArgsToFile(String sourceRoot, LocalDependencies ldep, ForeignDependencies fdep) {
         File f;
         try {
             f = File.createTempFile("Dependencies-", ".inp");
             printlnIfVerbose("writing dependencies to " + f.getAbsolutePath());
             try (final BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
                 bw.write("-cp ");
+                if (sourceRoot != null)
+                    bw.write(sourceRoot + (isWindows ? ";" : ":"));
                 if (ldep != null)
                     ldep.forEach(x -> {
                         try {
@@ -711,8 +713,6 @@ public class BuildUtils {
                             printError("error writing to " + f.getAbsolutePath());
                         }
                     }
-                if (additionalSourceRoot != null)
-                    bw.write(additionalSourceRoot);
                 bw.newLine();
             }
         } catch (IOException e) {
@@ -922,22 +922,45 @@ public class BuildUtils {
 
     /**
      * Run the Java application including any arguments passed.
+     * The root of the class files is assumed to be "target/classes".
      */
-    public static void runJava() {
-        if (args.length < 2 || args.length < 3 && args[0].equals("-v")) {
-            println("Usage:  bld [-v] run <class-to-run>  [argument]...");
+    public static void runJava(LocalDependencies ldep, ForeignDependencies fdep) {
+        runJava("target/classes", ldep, fdep);
+    }
+
+    /**
+     * Run the Java application including any arguments passed.
+     *
+     * @parem classRoot the root directory of the class files
+     */
+    public static void runJava(String classRoot, LocalDependencies ldep, ForeignDependencies fdep) {
+        runJava(classRoot, null, ldep, fdep);
+    }
+
+    /**
+     * Run the Java application including any arguments passed.
+     *
+     * @parem classRoot the root directory of the class files
+     * @param classToRun the class to run or null of specified on command line
+     */
+    public static void runJava(String classRoot, String classToRun, LocalDependencies ldep, ForeignDependencies fdep) {
+        if (args.length < 1 || args.length < 2 && args[0].equals("-v")) {
+            println("Usage:  bld [-v] run [class-to-run]  [argument]...");
             println("Example:  bld run org.example.Main");
             return;
         }
-        boolean verb = args[0].equals("-v");
-
-        StringBuilder cmd = new StringBuilder(args[verb ? 2 : 1]);
-        for (int i = verb ? 3 : 2; i < args.length; i++)
+        int startIdx = 1;
+        if (args[0].equals("-v"))
+            startIdx++;
+        StringBuilder cmd = new StringBuilder();
+        if (classToRun != null)
+            cmd.append(classToRun);
+        for (int i = startIdx ; i < args.length ; i++)
             cmd.append(" \"").append(args[i]).append("\"");
 
-        String cp = "\"target/classes" + (isWindows ? ';' : ':') + libsDir + File.separator + "*.jar\"";
+        String cp_file = writeDependencyArgsToFile(classRoot, ldep, fdep);
 
-        run(true, true, verbose, true, null, "java -cp " + cp + " " + cmd);
+        run(true, true, verbose, true, null, "java @" + cp_file + " " + cmd);
     }
 
     public static void killProcess(Process proc) {
@@ -1035,7 +1058,7 @@ public class BuildUtils {
         mkdir(destPath);
         String cmd, argsFile = null;
         if (ldep != null  &&  !ldep.isEmpty()  ||  fdep != null  &&  !fdep.isEmpty()) {
-            argsFile = writeDependencyArgsToFile(ldep, fdep, additionalSourceRoot);
+            argsFile = writeDependencyArgsToFile(additionalSourceRoot,ldep, fdep);
             cmd = "javac -g @" + argsFile + " -sourcepath " + sourcePath + " -d " + destPath + " @" + filelist;
         } else
             cmd = "javac -g -sourcepath " + sourcePath + " -d " + destPath + " @" + filelist;
@@ -1046,7 +1069,7 @@ public class BuildUtils {
     // Unfinished code to create WSDL's (I don't think they're needed anymore)
     public static void buildWS(LocalDependencies ldep, ForeignDependencies fdep, String dest, String sdir, String service) {
         String javaHome = java.lang.System.getProperty("java.home");  // to find tools.jar
-        String deps = writeDependencyArgsToFile(ldep, fdep, null);
+        String deps = writeDependencyArgsToFile(null, ldep, fdep);
         String cmd = "java -classpath @" + deps + " com.sun.tools.ws.WsGen -d " + dest + " -Xendorsed -keep -wsdl -r " + sdir + " -s " + sdir + " " + service;
         mkdir(sdir);
         runWait(true, cmd);
