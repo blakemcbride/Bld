@@ -51,6 +51,24 @@ public class BuildUtils {
     private static String [] args;
     private static String libsDir;
 
+    /**
+     * Execute a build task.
+     *
+     * The first argument is the task to perform.  If no argument is given, the
+     * help message is displayed.
+     *
+     * The second argument is the class of the tasks to consider.  This is
+     * typically the class that contains the public static methods that
+     * correspond to the tasks that are available.
+     *
+     * The third argument is the directory where libraries are stored.
+     *
+     * @param args the first argument is the task to perform and the second
+     * argument is the class of the tasks to consider.
+     * @param tasksClass the class of the tasks to consider.
+     * @param libsDir the directory where libraries are stored.
+     * @throws Exception if there is a problem executing the task.
+     */
     public static void build(String [] args, Class<?> tasksClass, String libsDir) throws Exception {
         String osName = System.getProperty("os.name");
         isLinux = osName.startsWith("Linux");
@@ -931,7 +949,7 @@ public class BuildUtils {
     /**
      * Run the Java application including any arguments passed.
      *
-     * @parem classRoot the root directory of the class files
+     * @param classRoot the root directory of the class files
      */
     public static void runJava(String classRoot, LocalDependencies ldep, ForeignDependencies fdep) {
         runJava(classRoot, null, ldep, fdep);
@@ -940,7 +958,7 @@ public class BuildUtils {
     /**
      * Run the Java application including any arguments passed.
      *
-     * @parem classRoot the root directory of the class files
+     * @param classRoot the root directory of the class files
      * @param classToRun the class to run or null of specified on command line
      */
     public static void runJava(String classRoot, String classToRun, LocalDependencies ldep, ForeignDependencies fdep) {
