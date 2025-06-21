@@ -45,7 +45,7 @@ need to execute the _bld_ program with a leading _./_
 
 The only file you should have to edit is the _Tasks.java_ file.
 
-The following commands are supported:
+The following commands come with the system and are designed to mimic Maven:
 
 * _bld help_ -  print a help message
 * _bld list-tasks_ -  print a list of valid tasks
@@ -57,6 +57,8 @@ The following commands are supported:
 * _bld clean_ -  remove the built files
 * _bld realclean_ -  remove the built files and downloaded jar files
 * _bld ideclean_ -  realclean + remove the IDE files
+
+Modifying existing commands or adding your own is trivial.
 
 ## Default Structure
 
