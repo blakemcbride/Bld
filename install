@@ -1,12 +1,33 @@
 #!/usr/bin/env bash
+set -euo pipefail        # fail fast, catch unset vars
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <path-to-place-you-want-to-install-bld-to>"
+if [[ $# -ne 1 ]]; then
+    echo "Usage: $0 <install-dir>"
     exit 1
 fi
 
-mkdir -p $1/builder
-cp builder/* $1/builder
-cp bld bld.cmd $1
+dest=$1                 # where you want bld installed
+src_dir="builder"       # source sub-directory
+
+mkdir -p "$dest/$src_dir"
+
+# 1.  Clean any JARs in the *source* tree (keeps them from being copied).
+rm -f "$dest"/*.jar
+
+# 2.  Copy everything **except** Tasks.java, always overwriting.
+shopt -s extglob        # enable extended patterns
+cp -p "$src_dir"/!(*Tasks.java) "$dest/$src_dir/"
+
+# 3.  Copy Tasks.java only if it does **not** exist yet.
+if [[ ! -e "$dest/$src_dir/Tasks.java" ]]; then
+    cp -p "$src_dir/Tasks.java" "$dest/$src_dir/"
+else
+    echo "Keeping existing $dest/$src_dir/Tasks.java"
+fi
+
+rm -f "$dest/$src_dir/*.class"
+
+# 4.  Copy the wrapper scripts.
+cp -p bld bld.cmd "$dest"
 
 
