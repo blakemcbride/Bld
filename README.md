@@ -33,7 +33,9 @@ _BLD_ includes the following files:
 * builder/BuildUtils.java -  the generic utilities needed to build
 * _bld_ - the program that drives the process (Linux, macOS, etc.)
 * _bld.cmd_ - the Windows version of _bld_
-* _builder/commons-compress-1.20.jar_ -  needed to extract jar files
+* _builder/commons-compress-1.27.1.jar_ -  needed to extract jar files
+* _builder/commons-io-2.16.1.jar_ -  needed to extract jar files
+* _builder/commons-lang3-3.14.0.jar_ -  needed to extract jar files
 
 ## Usage
 
@@ -70,7 +72,7 @@ way it comes out of the box is as follows:
 
 ## Requirements
 
-* Java 8 or later
+* Java 17 or later
 
 You do not need to build the system.  The system builds itself anytime something changes.
 

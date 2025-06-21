@@ -22,10 +22,8 @@
 
 package builder;
 
-import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.utils.IOUtils;
 
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
@@ -787,12 +785,13 @@ public class BuildUtils {
     /**
      * Create a command line input file with classpath dependencies.
      *
+     * @param compileTime true if compileTime, false if runtime
      * @param sourceRoot the source root directory for classpath
      * @param ldep local dependencies for classpath
      * @param fdep foreign dependencies for classpath
      * @return the path to the created input file
      */
-    private static String writeDependencyArgsToFile(String sourceRoot, LocalDependencies ldep, ForeignDependencies fdep) {
+    private static String writeDependencyArgsToFile(boolean compileTime, String sourceRoot, LocalDependencies ldep, ForeignDependencies fdep) {
         File f;
         try {
             f = File.createTempFile("Dependencies-", ".inp");
@@ -802,13 +801,14 @@ public class BuildUtils {
                 if (sourceRoot != null)
                     bw.write(sourceRoot + (isWindows ? ";" : ":"));
                 if (ldep != null)
-                    ldep.forEach(x -> {
+                    for (Dependency dep : ldep.deps)
                         try {
-                            bw.write(x + (isWindows ? ";" : ":"));
+                            String d = compileTime ? dep.compileTimeDir : dep.runtimeDir;
+                            if (d != null)
+                                bw.write(d + dep.fileName + (isWindows ? ";" : ":"));
                         } catch (IOException e) {
                             printError("error writing to " + f.getAbsolutePath());
                         }
-                    });
                 if (fdep != null)
                     for (ForeignDependency x : fdep.getDependencies()) {
                         try {
@@ -1105,7 +1105,7 @@ public class BuildUtils {
         for (int i = startIdx ; i < args.length ; i++)
             cmd.append(" \"").append(args[i]).append("\"");
 
-        String cp_file = writeDependencyArgsToFile(classRoot, ldep, fdep);
+        String cp_file = writeDependencyArgsToFile(false, classRoot, ldep, fdep);
 
         run(true, true, verbose, true, null, "java @" + cp_file + " " + cmd);
     }
@@ -1215,7 +1215,8 @@ public class BuildUtils {
      */
     public static void unJarAllLibs(final String rootDir, LocalDependencies ld, ForeignDependencies fd) {
         if (ld != null)
-            ld.forEach(dep -> unJar(rootDir, dep));
+            for (Dependency dep : ld.deps)
+                unJar(rootDir, dep.compileTimeDir + dep.fileName);
         if (fd != null)
             for (ForeignDependency dep : fd.getDependencies())
                 if (dep.filename.endsWith(".jar"))
@@ -1237,8 +1238,8 @@ public class BuildUtils {
             throw new RuntimeException("javac: \"" + sourcePath + "\" does not exist");
         mkdir(destPath);
         String cmd, argsFile = null;
-        if (ldep != null  &&  !ldep.isEmpty()  ||  fdep != null  &&  !fdep.isEmpty()) {
-            argsFile = writeDependencyArgsToFile(additionalSourceRoot,ldep, fdep);
+        if (ldep != null  &&  !ldep.deps.isEmpty()  ||  fdep != null  &&  !fdep.isEmpty()) {
+            argsFile = writeDependencyArgsToFile(true, additionalSourceRoot,ldep, fdep);
             cmd = "javac -g @" + argsFile + " -sourcepath " + sourcePath + " -d " + destPath + " @" + filelist;
         } else
             cmd = "javac -g -sourcepath " + sourcePath + " -d " + destPath + " @" + filelist;
@@ -1258,7 +1259,7 @@ public class BuildUtils {
      */
     public static void buildWS(LocalDependencies ldep, ForeignDependencies fdep, String dest, String sdir, String service) {
         String javaHome = java.lang.System.getProperty("java.home");  // to find tools.jar
-        String deps = writeDependencyArgsToFile(null, ldep, fdep);
+        String deps = writeDependencyArgsToFile(true, null, ldep, fdep);
         String cmd = "java -classpath @" + deps + " com.sun.tools.ws.WsGen -d " + dest + " -Xendorsed -keep -wsdl -r " + sdir + " -s " + sdir + " " + service;
         mkdir(sdir);
         runWait(true, cmd);
@@ -1299,7 +1300,7 @@ public class BuildUtils {
 
         try {
             try (final InputStream is = new FileInputStream(inputFile)) {
-                final TarArchiveInputStream debInputStream = (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is);
+                final TarArchiveInputStream debInputStream = new TarArchiveInputStream(is);
                 TarArchiveEntry entry;
                 while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
                     String entryName = entry.getName();
@@ -1316,7 +1317,11 @@ public class BuildUtils {
                     } else {
                         //println(String.format("Creating output file %s.", outputFile.getAbsolutePath()));
                         try (final OutputStream outputFileStream = new FileOutputStream(outputFile)) {
-                            IOUtils.copy(debInputStream, outputFileStream);
+                            byte[] buffer = new byte[8192];
+                            int bytesRead;
+                            while ((bytesRead = debInputStream.read(buffer)) != -1) {
+                                outputFileStream.write(buffer, 0, bytesRead);
+                            }
                             int mode = entry.getMode();
                             String oct = Integer.toOctalString(mode);
                             if (oct.length() >= 3) {
@@ -1365,7 +1370,11 @@ public class BuildUtils {
 
         try (GZIPInputStream in = new GZIPInputStream(new FileInputStream(inputFile));
              FileOutputStream out = new FileOutputStream(outputFile)) {
-            IOUtils.copy(in, out);
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
         }
 
         return outputFile;
@@ -1479,10 +1488,50 @@ public class BuildUtils {
     }
 
     /**
+     * Class to represent a single local dependency (JAR file).
+     */
+    private static class Dependency {
+        String fileName;
+        String compileTimeDir;
+        String runtimeDir;
+    }
+
+    /**
      * Collection class for managing local dependencies (JAR files).
      * Extends ArrayList to store local dependency paths as strings.
      */
-    public static class LocalDependencies extends ArrayList<String> {
+    public static class LocalDependencies {
+        private final ArrayList<Dependency> deps = new ArrayList<>();
+
+        /**
+         * Add a new local dependency where the compile time and runtime dependencies are the same.
+         *
+         * @param compileTimeDir the relative path to the jar files needed at compile and runtime
+         * @param fileName the jar file name
+         */
+        public void add(String compileTimeDir, String fileName) {
+            compileTimeDir = compileTimeDir == null ? null : compileTimeDir.endsWith("/") || compileTimeDir.endsWith("\\") ? compileTimeDir : compileTimeDir + "/";
+            final Dependency dep = new Dependency();
+            dep.compileTimeDir = compileTimeDir;
+            dep.fileName = fileName;
+            dep.runtimeDir = compileTimeDir;
+            deps.add(dep);
+        }
+
+        /**
+         * Add a new local dependency where the compile time and runtime dependencies are different.
+         * @param compileTimeDir the relative path to the jar files needed at compile
+         * @param runtimeDir the relative path to the jar files needed at runtime
+         * @param fileName the jar file name
+         */
+        public void add(String compileTimeDir, String runtimeDir, String fileName) {
+            final Dependency dep = new Dependency();
+            dep.compileTimeDir = compileTimeDir == null ? null : compileTimeDir.endsWith("/") || compileTimeDir.endsWith("\\") ? compileTimeDir : compileTimeDir + "/";;
+            dep.fileName = fileName;
+            dep.runtimeDir = runtimeDir == null ? null : runtimeDir.endsWith("/") || runtimeDir.endsWith("\\") ? runtimeDir : runtimeDir + "/";
+            deps.add(dep);
+        }
+
     }
 
     /**
