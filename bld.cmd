@@ -11,7 +11,7 @@ setlocal enableextensions
 :: Configuration – adjust if your layout changes
 :: --------------------------------------------------------------------------
 set "SRC_DIR=builder"
-set "JAR=%SRC_DIR%\commons-compress-1.27.1.jar;%SRC_DIR%\commons-io-2.16.1.jar;%SRC_DIR%\commons-lang3-3.14.0.jar"
+set "JAR=%SRC_DIR%\commons-compress-1.27.1.jar;%SRC_DIR%\commons-io-2.16.1.jar;%SRC_DIR%\commons-lang3-3.18.0.jar"
 set "CLASSPATH=%JAR%"
 set "SOURCES=%SRC_DIR%\Tasks.java %SRC_DIR%\BuildUtils.java"
 set "MAIN=builder.Tasks"

@@ -35,7 +35,7 @@ _BLD_ includes the following files:
 * _bld.cmd_ - the Windows version of _bld_
 * _builder/commons-compress-1.27.1.jar_ -  needed to extract jar files
 * _builder/commons-io-2.16.1.jar_ -  needed to extract jar files
-* _builder/commons-lang3-3.14.0.jar_ -  needed to extract jar files
+* _builder/commons-lang3-3.18.0.jar_ -  needed to extract jar files
 
 ## Usage
 
